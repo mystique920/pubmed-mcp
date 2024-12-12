@@ -1,4 +1,3 @@
-const { MCPServer } = require('@rikachu225/pubmed-server');
 const axios = require('axios');
 
 const PUBMED_BASE_URL = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
@@ -6,9 +5,8 @@ const DEFAULT_TOOL = 'pubmed-api';
 const DEFAULT_EMAIL = 'default@example.com';
 const RATE_LIMIT_DELAY = 334;
 
-class PubMedMCPServer extends MCPServer {
+class PubMedServer {
   constructor() {
-    super();
     this.lastRequestTime = 0;
   }
 
@@ -21,7 +19,7 @@ class PubMedMCPServer extends MCPServer {
     this.lastRequestTime = Date.now();
   }
 
-  async searchPubMed({ query, maxResults = 10, filterOpenAccess = true, sort = 'relevance' }) {
+  async search({ query, maxResults = 10, filterOpenAccess = true, sort = 'relevance' }) {
     await this.enforceRateLimit();
     try {
       const searchQuery = filterOpenAccess ? 
@@ -104,9 +102,8 @@ class PubMedMCPServer extends MCPServer {
   async getLatestArticles({ topic, days = 30, maxResults = 10 }) {
     const dateFilter = this.getDateFilter(days);
     const query = `${topic} AND ${dateFilter}`;
-    return this.searchPubMed({ query, maxResults, sort: 'date' });
+    return this.search({ query, maxResults, sort: 'date' });
   }
 }
 
-
-module.exports = new PubMedMCPServer();
+module.exports = new PubMedServer();

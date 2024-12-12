@@ -13,13 +13,13 @@ An MCP server implementation for accessing PubMed data with focus on open access
 ## Installation
 
 ```bash
-npm install @mcp/pubmed-server
+npm install @rikachu225/pubmed-server
 ```
 
 ## Usage
 
 ```javascript
-import PubMedServer from '@mcp/pubmed-server';
+import PubMedServer from '@rikachu225/pubmed-server';
 
 // Search for recent open access papers
 const results = await PubMedServer.getLatestOpenAccess({
@@ -63,3 +63,4 @@ The server implements automatic rate limiting to comply with NCBI's guidelines (
 ## License
 
 MIT
+# mcp-pubmed-server

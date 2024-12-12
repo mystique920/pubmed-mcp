@@ -1,6 +1,6 @@
 {
   "name": "@rikachu225/pubmed-server",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "PubMed Server for accessing research papers with MCP support",
   "main": "index.js",
   "publishConfig": {

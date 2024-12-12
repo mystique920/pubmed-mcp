@@ -1,4 +1,4 @@
-const { MCPServer } = require('@mcp/server');
+const { MCPServer } = require('@rikachu225/server');
 const axios = require('axios');
 
 const PUBMED_BASE_URL = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
@@ -107,5 +107,11 @@ class PubMedMCPServer extends MCPServer {
     return this.searchPubMed({ query, maxResults, sort: 'date' });
   }
 }
+
+"publishConfig": {
+  "access": "public",
+  "registry": "https://registry.npmjs.org/"
+}
+
 
 module.exports = new PubMedMCPServer();

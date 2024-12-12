@@ -1,8 +1,9 @@
 {
   "name": "@rikachu225/pubmed-server",
-  "version": "1.0.3",
-  "description": "PubMed Server for accessing research papers",
+  "version": "1.0.4",
+  "description": "PubMed Server for accessing research papers with MCP support",
   "main": "index.js",
+  "type": "mcp",
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
@@ -13,7 +14,8 @@
   },
   "keywords": [
     "pubmed",
-    "research"
+    "research",
+    "mcp"
   ],
   "author": "rikachu",
   "license": "ISC",
@@ -23,9 +25,5 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/rikachu225/mcp-pubmed-server.git"
-  },
-  "bugs": {
-    "url": "https://github.com/rikachu225/mcp-pubmed-server/issues"
-  },
-  "homepage": "https://github.com/rikachu225/mcp-pubmed-server#readme"
+  }
 }

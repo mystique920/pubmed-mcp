@@ -1,0 +1,21 @@
+{
+  "name": "@mcp/pubmed",
+  "version": "1.0.0",
+  "description": "PubMed MCP Server for accessing research papers",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
+  },
+  "keywords": [
+    "mcp",
+    "pubmed",
+    "research"
+  ],
+  "author": "rikachu",
+  "license": "ISC",
+  "dependencies": {
+    "@mcp/server": "^1.0.0",
+    "axios": "^1.6.0"
+  }
+}

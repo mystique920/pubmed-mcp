@@ -1,12 +1,15 @@
 {
   "name": "@rikachu225/pubmed-server",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "PubMed Server for accessing research papers with MCP support",
   "main": "index.js",
-  "type": "mcp",
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
+  },
+  "type": "module",
+  "mcp": {
+    "type": "server"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",

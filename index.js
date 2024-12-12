@@ -10,7 +10,28 @@ class PubMedServer {
     this.lastRequestTime = 0;
   }
 
-  // Required MCP method
+  // MCP Protocol Methods
+  async initialize() {
+    return { status: 'ready' };
+  }
+
+  async handleMessage(message) {
+    try {
+      const { type, payload } = message;
+      
+      switch (type) {
+        case 'request':
+          return await this.handleRequest(payload);
+        default:
+          throw new Error(`Unknown message type: ${type}`);
+      }
+    } catch (error) {
+      return {
+        error: error.message
+      };
+    }
+  }
+
   async handleRequest(request) {
     const { method, params } = request;
     
@@ -24,7 +45,6 @@ class PubMedServer {
     }
   }
 
-  // Rest of your existing methods stay the same
   async enforceRateLimit() {
     const now = Date.now();
     const timeSinceLastRequest = now - this.lastRequestTime;
@@ -68,8 +88,64 @@ class PubMedServer {
     }
   }
 
-  // ... rest of your existing methods ...
+  async fetchArticleDetails(ids) {
+    await this.enforceRateLimit();
+    try {
+      const response = await axios.get(`${PUBMED_BASE_URL}/esummary.fcgi`, {
+        params: {
+          db: 'pubmed',
+          id: ids.join(','),
+          retmode: 'json',
+          tool: DEFAULT_TOOL,
+          email: DEFAULT_EMAIL
+        }
+      });
+
+      const articles = [];
+      const result = response.data.result;
+      
+      for (const id of ids) {
+        const article = result[id];
+        if (article) {
+          articles.push({
+            pmid: id,
+            title: article.title,
+            authors: article.authors?.map(author => author.name) || [],
+            publicationDate: article.pubdate,
+            journal: article.source,
+            doi: article.elocationid?.replace('doi: ', '') || null,
+            abstract: article.abstract || null,
+            url: `https://pubmed.ncbi.nlm.nih.gov/${id}/`
+          });
+        }
+      }
+
+      return articles;
+    } catch (error) {
+      console.error('PubMed fetch error:', error);
+      throw new Error(`Failed to fetch article details: ${error.message}`);
+    }
+  }
+
+  getDateFilter(days) {
+    const date = new Date();
+    date.setDate(date.getDate() - days);
+    const formattedDate = date.toISOString().split('T')[0];
+    return `"${formattedDate}"[Date - Publication] : "3000"[Date - Publication]`;
+  }
+
+  async getLatestArticles({ topic, days = 30, maxResults = 10 }) {
+    const dateFilter = this.getDateFilter(days);
+    const query = `${topic} AND ${dateFilter}`;
+    return this.search({ query, maxResults, sort: 'date' });
+  }
 }
 
-// Export as both MCP server and regular module
-module.exports = new PubMedServer();
+// Export a function that creates and returns the server instance
+module.exports = () => {
+  const server = new PubMedServer();
+  return {
+    initialize: () => server.initialize(),
+    handleMessage: (message) => server.handleMessage(message)
+  };
+};

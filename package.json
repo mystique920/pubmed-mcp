@@ -23,6 +23,7 @@
   "author": "rikachu",
   "license": "ISC",
   "dependencies": {
+    "@rikachu225/pubmed-server": "^1.0.6",
     "axios": "^1.6.0"
   },
   "repository": {

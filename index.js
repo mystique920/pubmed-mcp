@@ -1,151 +1,69 @@
-const axios = require('axios');
+import { Server } from '@modelcontextprotocol/sdk';
+import axios from 'axios';
 
 const PUBMED_BASE_URL = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
 const DEFAULT_TOOL = 'pubmed-api';
 const DEFAULT_EMAIL = 'default@example.com';
 const RATE_LIMIT_DELAY = 334;
 
-class PubMedServer {
-  constructor() {
-    this.lastRequestTime = 0;
-  }
-
-  // MCP Protocol Methods
-  async initialize() {
-    return { status: 'ready' };
-  }
-
-  async handleMessage(message) {
-    try {
-      const { type, payload } = message;
-      
-      switch (type) {
-        case 'request':
-          return await this.handleRequest(payload);
-        default:
-          throw new Error(`Unknown message type: ${type}`);
-      }
-    } catch (error) {
-      return {
-        error: error.message
-      };
-    }
-  }
-
-  async handleRequest(request) {
-    const { method, params } = request;
-    
-    switch (method) {
-      case 'search':
-        return await this.search(params);
-      case 'getLatestArticles':
-        return await this.getLatestArticles(params);
-      default:
-        throw new Error(`Unknown method: ${method}`);
-    }
-  }
-
-  async enforceRateLimit() {
-    const now = Date.now();
-    const timeSinceLastRequest = now - this.lastRequestTime;
-    if (timeSinceLastRequest < RATE_LIMIT_DELAY) {
-      await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_DELAY - timeSinceLastRequest));
-    }
-    this.lastRequestTime = Date.now();
-  }
-
-  async search({ query, maxResults = 10, filterOpenAccess = true, sort = 'relevance' }) {
-    await this.enforceRateLimit();
-    try {
-      const searchQuery = filterOpenAccess ? 
-        `(${query}) AND ("open access"[Filter])` : query;
-
-      const response = await axios.get(`${PUBMED_BASE_URL}/esearch.fcgi`, {
-        params: {
-          db: 'pubmed',
-          term: searchQuery,
-          retmax: maxResults,
-          sort: sort,
-          retmode: 'json',
-          tool: DEFAULT_TOOL,
-          email: DEFAULT_EMAIL
+// Create an MCP server instance
+const server = new Server({
+  name: "pubmed",
+  version: "1.0.0",
+  capabilities: {
+    tools: [
+      {
+        name: "search",
+        description: "Search PubMed for research articles",
+        inputSchema: {
+          type: "object",
+          properties: {
+            query: { type: "string" },
+            maxResults: { type: "number" },
+            filterOpenAccess: { type: "boolean" }
+          },
+          required: ["query"]
         }
-      });
-
-      const ids = response.data.esearchresult.idlist;
-      if (!ids.length) {
-        return { results: [], total: 0 };
-      }
-
-      const articles = await this.fetchArticleDetails(ids);
-      return {
-        results: articles,
-        total: parseInt(response.data.esearchresult.count)
-      };
-    } catch (error) {
-      console.error('PubMed search error:', error);
-      throw new Error(`Failed to search PubMed: ${error.message}`);
-    }
-  }
-
-  async fetchArticleDetails(ids) {
-    await this.enforceRateLimit();
-    try {
-      const response = await axios.get(`${PUBMED_BASE_URL}/esummary.fcgi`, {
-        params: {
-          db: 'pubmed',
-          id: ids.join(','),
-          retmode: 'json',
-          tool: DEFAULT_TOOL,
-          email: DEFAULT_EMAIL
-        }
-      });
-
-      const articles = [];
-      const result = response.data.result;
-      
-      for (const id of ids) {
-        const article = result[id];
-        if (article) {
-          articles.push({
-            pmid: id,
-            title: article.title,
-            authors: article.authors?.map(author => author.name) || [],
-            publicationDate: article.pubdate,
-            journal: article.source,
-            doi: article.elocationid?.replace('doi: ', '') || null,
-            abstract: article.abstract || null,
-            url: `https://pubmed.ncbi.nlm.nih.gov/${id}/`
-          });
+      },
+      {
+        name: "getLatestArticles",
+        description: "Get recent articles on a topic",
+        inputSchema: {
+          type: "object",
+          properties: {
+            topic: { type: "string" },
+            days: { type: "number" },
+            maxResults: { type: "number" }
+          },
+          required: ["topic"]
         }
       }
-
-      return articles;
-    } catch (error) {
-      console.error('PubMed fetch error:', error);
-      throw new Error(`Failed to fetch article details: ${error.message}`);
-    }
+    ]
   }
+});
 
-  getDateFilter(days) {
-    const date = new Date();
-    date.setDate(date.getDate() - days);
-    const formattedDate = date.toISOString().split('T')[0];
-    return `"${formattedDate}"[Date - Publication] : "3000"[Date - Publication]`;
-  }
+// Implement the request handler
+server.setRequestHandler(async (request) => {
+  const { method, params } = request;
 
-  async getLatestArticles({ topic, days = 30, maxResults = 10 }) {
-    const dateFilter = this.getDateFilter(days);
-    const query = `${topic} AND ${dateFilter}`;
-    return this.search({ query, maxResults, sort: 'date' });
+  switch (method) {
+    case 'search':
+      return await search(params);
+    case 'getLatestArticles':
+      return await getLatestArticles(params);
+    default:
+      throw new Error(`Unknown method: ${method}`);
   }
+});
+
+// Your existing PubMed functions
+async function search({ query, maxResults = 10, filterOpenAccess = true, sort = 'relevance' }) {
+  // ... (rest of your existing search function)
 }
 
-// Export a function that creates and returns the server instance
-module.exports = () => {
-  const server = new PubMedServer();
-  return {
-    initialize: () => server.initialize(),
-    handleMessage: (message) => server.handleMessage(message)
-  };
-};
+async function getLatestArticles({ topic, days = 30, maxResults = 10 }) {
+  // ... (rest of your existing getLatestArticles function)
+}
+
+// Export the server
+export default server;

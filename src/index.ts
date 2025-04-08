@@ -23,6 +23,15 @@ interface PubMedResponse {
   esearchresult: {
     idlist: string[];
     count: string;
+    retmax?: string; // Optional fields observed in logs
+    retstart?: string; // Optional fields observed in logs
+    translationset?: Array<{ from: string; to: string }>; // Optional fields observed in logs
+    querytranslation?: string; // Optional fields observed in logs
+    warninglist?: { // Add optional warninglist
+      phrasesignored?: string[];
+      quotedphrasesnotfound?: string[];
+      outputmessages?: string[];
+    };
   };
 }
 
@@ -42,7 +51,7 @@ interface PubMedSummaryResponse {
 const SearchArgumentsSchema = z.object({
   query: z.string(),
   maxResults: z.number().default(10),
-  filterOpenAccess: z.boolean().default(true)
+  filterOpenAccess: z.boolean().optional() // Make filter opt-in for the 'search' tool
 });
 
 const LatestArticlesSchema = z.object({
@@ -54,11 +63,50 @@ const LatestArticlesSchema = z.object({
 type SearchArgs = z.infer<typeof SearchArgumentsSchema>;
 type LatestArticlesArgs = z.infer<typeof LatestArticlesSchema>;
 
+// Define standard JSON Schemas for tool inputs
+const searchInputSchema = {
+  type: "object",
+  properties: {
+    query: {
+      type: "string",
+      description: "The search query for PubMed."
+    },
+    maxResults: {
+      type: "number",
+      description: "Maximum number of results to return (default: 10)."
+    },
+    filterOpenAccess: {
+      type: "boolean",
+      description: "Filter for open access articles only (optional, defaults to false if omitted)." // Updated description
+    }
+  },
+  required: ["query"] // filterOpenAccess is no longer required
+};
+
+const latestArticlesInputSchema = {
+  type: "object",
+  properties: {
+    topic: {
+      type: "string",
+      description: "The topic to search for recent articles."
+    },
+    days: {
+      type: "number",
+      description: "How many past days to include (default: 30)."
+    },
+    maxResults: {
+      type: "number",
+      description: "Maximum number of results to return (default: 10)."
+    }
+  },
+  required: ["topic"]
+};
+
 // Create server instance
 const server = new Server(
   {
-    name: "pubmed",
-    version: "1.0.0",
+    name: "pubmed-mcp", // Changed name to match package
+    version: "1.0.0", // Version already matches
   },
   {
     capabilities: {
@@ -74,12 +122,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       {
         name: "search",
         description: "Search PubMed for research articles",
-        inputSchema: SearchArgumentsSchema
+        inputSchema: searchInputSchema // Use JSON Schema literal
       },
       {
         name: "getLatestArticles",
         description: "Get recent articles on a topic",
-        inputSchema: LatestArticlesSchema
+        inputSchema: latestArticlesInputSchema // Use JSON Schema literal
       }
     ]
   };
@@ -99,9 +147,11 @@ async function enforceRateLimit(): Promise<void> {
 async function search({ query, maxResults = 10, filterOpenAccess = true }: SearchArgs) {
   await enforceRateLimit();
   try {
-    const searchQuery = filterOpenAccess ? 
-      `(${query}) AND ("open access"[Filter])` : query;
-
+    // Construct the search query, adding the open access filter if requested
+    let searchQuery = query;
+    if (filterOpenAccess) {
+      searchQuery = `(${query}) AND open access[filter]`; // Corrected filter syntax
+    }
     const searchUrl = new URL(`${PUBMED_BASE_URL}/esearch.fcgi`);
     searchUrl.searchParams.append('db', 'pubmed');
     searchUrl.searchParams.append('term', searchQuery);
@@ -111,11 +161,19 @@ async function search({ query, maxResults = 10, filterOpenAccess = true }: Searc
     searchUrl.searchParams.append('email', DEFAULT_EMAIL);
 
     const response = await fetch(searchUrl.toString());
-    if (!response.ok) throw new Error(`PubMed search failed: ${response.statusText}`);
+    if (!response.ok) {
+      // Log error text if fetch fails
+      const errorText = await response.text();
+      console.error(`PubMed search HTTP error: ${response.status} ${response.statusText}. Response: ${errorText}`);
+      throw new Error(`PubMed search failed: ${response.statusText}`);
+    }
     const data = await response.json() as PubMedResponse;
 
-    const ids = data.esearchresult.idlist;
-    if (!ids.length) {
+    const ids = data.esearchresult?.idlist; // Optional chaining
+    if (!ids || !ids.length) {
+      // Log if no IDs are found, potentially including warnings from PubMed
+      const warnings = data.esearchresult?.warninglist?.outputmessages?.join(' ');
+      console.error(`PubMed search returned no IDs. Query: ${searchQuery}. Warnings: ${warnings || 'None'}`);
       return { content: [{ type: "text", text: "No results found" }] };
     }
 
@@ -138,6 +196,7 @@ async function search({ query, maxResults = 10, filterOpenAccess = true }: Searc
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`Error during PubMed search execution: ${errorMessage}`, error); // Log other errors
     return {
       content: [{
         type: "text",
@@ -158,11 +217,14 @@ async function fetchArticleDetails(ids: string[]): Promise<Article[]> {
     summaryUrl.searchParams.append('email', DEFAULT_EMAIL);
 
     const response = await fetch(summaryUrl.toString());
-    if (!response.ok) throw new Error(`Failed to fetch article details: ${response.statusText}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`PubMed summary HTTP error: ${response.status} ${response.statusText}. Response: ${errorText}`);
+      throw new Error(`Failed to fetch article details: ${response.statusText}`);
+    }
     const data = await response.json() as PubMedSummaryResponse;
-
     return ids.map(id => {
-      const article = data.result[id];
+      const article = data.result?.[id]; // Optional chaining
       return {
         pmid: id,
         title: article.title || 'No title',
@@ -175,6 +237,7 @@ async function fetchArticleDetails(ids: string[]): Promise<Article[]> {
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`Error during PubMed summary fetch: ${errorMessage}`, error); // Log other errors
     throw new Error(`Failed to fetch article details: ${errorMessage}`);
   }
 }

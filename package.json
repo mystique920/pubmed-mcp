@@ -1,7 +1,7 @@
 {
-  "name": "@rikachu225/pubmed-server",
-  "version": "1.1.0",
-  "description": "PubMed Server for accessing research papers with MCP support",
+  "name": "@mystique920/pubmed-mcp",
+  "version": "1.0.0",
+  "description": "MCP server providing tools to search PubMed and retrieve article details.",
   "main": "build/index.js",
   "type": "module",
   "bin": {
@@ -18,7 +18,7 @@
     "research",
     "mcp"
   ],
-  "author": "rikachu",
+  "author": "mystique920",
   "license": "ISC",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.3",
